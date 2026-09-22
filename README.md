@@ -21,8 +21,8 @@ Không có `GEMINI_API_KEY` app vẫn chạy: đố vui / chuyện cười / tr�
 
 ## Avatar
 
-- Model mặc định: `public/avatars/lydia.vrm` — "Lydia" của Polygonal Mind (100Avatars), **CC0**, VRM 0.x, chỉ có blendshape miệng/chớp mắt nên cảm xúc thể hiện qua đầu/thân.
-- Thay model: bỏ file `.vrm` khác vào `public/avatars/` và đổi `DEFAULT_AVATAR_URL` trong `lib/avatar.ts` (hoặc truyền `modelUrl` cho `AvatarPanel`). Model VRoid Studio có đủ biểu cảm happy/sad/… sẽ đẹp hơn.
+- Model mặc định: `public/avatars/sample.vrm` — model mẫu VRM 1.0 của pixiv/three-vrm (MIT), có đủ biểu cảm happy/sad/aa/blink.
+- Thay model: bỏ file `.vrm` khác (VRM 0.x hoặc 1.0 đều được) vào `public/avatars/` và đổi `DEFAULT_AVATAR_URL` trong `lib/avatar.ts` (hoặc truyền `modelUrl` cho `AvatarPanel`).
 
 ## Kiểm tra
 

@@ -26,4 +26,4 @@ export function detectReaction(text: string): Reaction {
 }
 
 /** Default model; replace with your own VRM (VRoid Studio export) in public/avatars/. */
-export const DEFAULT_AVATAR_URL = "/avatars/lydia.vrm";
+export const DEFAULT_AVATAR_URL = "/avatars/sample.vrm";
