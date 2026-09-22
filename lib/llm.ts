@@ -32,8 +32,12 @@ function rules(text: string, quiz: Quiz): { reply: string; quiz: Quiz } | null {
   if (quiz) {
     const r = PERSONA.riddles[quiz.index];
     if (STOP_QUIZ.test(n)) {
+      const done = quiz.asked - 1;
       return {
-        reply: `OK, nghỉ đố nhé. Bạn được ${quiz.score}/${quiz.asked} câu. ${quiz.score >= quiz.asked / 2 ? "Không tệ đâu 😎" : "Lần sau gỡ lại nha 😏"}`,
+        reply:
+          done === 0
+            ? "OK, nghỉ đố nhé. Chưa trả lời câu nào mà đã chạy rồi 😏"
+            : `OK, nghỉ đố nhé. Bạn được ${quiz.score}/${done} câu. ${quiz.score >= done / 2 ? "Không tệ đâu 😎" : "Lần sau gỡ lại nha 😏"}`,
         quiz: null,
       };
     }

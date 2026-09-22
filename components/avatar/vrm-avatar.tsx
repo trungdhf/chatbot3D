@@ -109,6 +109,7 @@ export default function VrmAvatar({
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.domElement.className = "absolute inset-0 h-full w-full";
     el.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
