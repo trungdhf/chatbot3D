@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import AvatarPanel from "@/components/avatar/avatar-panel";
 import type { ChatMessage, Quiz } from "@/lib/llm";
+import type { Reaction } from "@/lib/avatar";
 
-type Msg = ChatMessage & { id: string };
+type Msg = ChatMessage & { id: string; reaction?: Reaction };
 
 let seq = 0;
 const nextId = () => `m${Date.now()}-${seq++}`;
@@ -50,9 +51,9 @@ export default function Chat({
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as { reply: string; quiz: Quiz };
+      const data = (await res.json()) as { reply: string; quiz: Quiz; reaction?: Reaction };
       setQuiz(data.quiz);
-      setMessages((m) => [...m, { id: nextId(), role: "assistant", content: data.reply }]);
+      setMessages((m) => [...m, { id: nextId(), role: "assistant", content: data.reply, reaction: data.reaction }]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Lỗi không xác định");
     } finally {
@@ -149,7 +150,7 @@ export default function Chat({
         <AvatarPanel
           name={name}
           thinking={busy}
-          line={last ? { id: last.id, text: last.content } : null}
+          line={last ? { id: last.id, text: last.content, reaction: last.reaction } : null}
         />
       </aside>
     </main>

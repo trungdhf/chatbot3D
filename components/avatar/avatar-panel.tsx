@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
-import { DEFAULT_AVATAR_URL, detectReaction, type Emotion, type Gesture } from "@/lib/avatar";
+import { DEFAULT_AVATAR_URL, detectReaction, type Emotion, type Gesture, type Reaction } from "@/lib/avatar";
 
 const VrmAvatar = dynamic(() => import("./vrm-avatar"), { ssr: false });
 
@@ -21,8 +21,8 @@ export default function AvatarPanel({
   modelUrl = DEFAULT_AVATAR_URL,
   lang = "vi-VN",
 }: {
-  /** Latest assistant message; drives emotion, gesture and speech. */
-  line: { id: string; text: string } | null;
+  /** Latest assistant message; drives emotion, gesture and speech. Falls back to keyword detection without `reaction`. */
+  line: { id: string; text: string; reaction?: Reaction } | null;
   /** While waiting for the bot, the avatar holds the "think" pose. */
   thinking?: boolean;
   name?: string;
@@ -50,14 +50,15 @@ export default function AvatarPanel({
 
   const lineId = line?.id;
   const lineText = line?.text;
+  const lineReaction = line?.reaction;
 
   useEffect(() => {
     if (!lineText) return;
-    const r = detectReaction(lineText);
+    const r = lineReaction ?? detectReaction(lineText);
     trigger(r.emotion, r.gesture);
     const reset = setTimeout(() => setEmotion("neutral"), 6000);
     return () => clearTimeout(reset);
-  }, [lineId, lineText]);
+  }, [lineId, lineText, lineReaction]);
 
   useEffect(() => {
     if (!lineText || !voice || typeof speechSynthesis === "undefined") return;
