@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Chatbot 3D — Hỗ trợ khách hàng",
-  description: "Chatbot hỏi đáp / hỗ trợ khách hàng với avatar 3D (VRM).",
+  title: "Linh — bạn chat 3D",
+  description: "Tán gẫu, trêu đùa, đố vui với cô bạn avatar 3D (VRM).",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

@@ -49,8 +49,8 @@ const POSES: Record<Exclude<Gesture, "none"> | Emotion, Pose> = {
   },
   bow: { spine: [0.4, 0, 0], chest: [0.15, 0, 0], neck: [0.25, 0, 0] },
   think: {
-    rightUpperArm: [-0.85, 0, 1.45],
-    rightLowerArm: [1.5, 0, -2.45],
+    rightUpperArm: [-0.55, 0, 1.4],
+    rightLowerArm: [1.7, 0, -2.15],
     rightHand: [0, 0.3, -0.5],
     neck: [-0.05, 0.25, 0.15],
     head: [0, 0.1, 0.05],
@@ -197,6 +197,11 @@ export default function VrmAvatar({
         }
         if (g === "think" && name === "head") tmp.y += Math.sin(phase * 1.3) * 0.05;
         if (s.emotion === "happy" && name === "spine") tmp.x += Math.sin(t * 4) * 0.01;
+        // VRM 0.x normalized bones sit in a frame rotated 180° around Y.
+        if (vrm.meta.metaVersion === "0") {
+          tmp.x = -tmp.x;
+          tmp.z = -tmp.z;
+        }
         const k = 1 - Math.exp(-dt * 8);
         node.rotation.x += (tmp.x - node.rotation.x) * k;
         node.rotation.y += (tmp.y - node.rotation.y) * k;
