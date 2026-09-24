@@ -65,17 +65,17 @@ const BLINK_CLOSE = 0.1;
 const BLINK_HOLD = 0.05;
 const BLINK_OPEN = 0.2;
 const HEAD_ROLL_START = 7.5;
-const HEAD_ROLL_DURATION = 3.5;
-const EXERCISE_DURATION = 12;
+const HEAD_ROLL_DURATION = 4;
+const EXERCISE_DURATION = 12.5;
 /** Distance from the head joint up to the head's centre of rotation (m). */
 const HEAD_CENTER = 0.1;
 
-/** 0 → 1 (upside down) → 0 over the roll: ease in, hold, ease out. */
+/** Full turn: 0 → 1 (180°, upside down), hold, then on to 2 (360°). Ease in/out each half. */
 function headSpin(p: number) {
-  const up = Math.min(1, p / 0.4);
-  const down = Math.min(1, Math.max(0, (p - 0.6) / 0.4));
   const ease = (x: number) => x * x * (3 - 2 * x);
-  return ease(up) - ease(down);
+  const up = ease(Math.min(1, p / 0.35));
+  const on = ease(Math.min(1, Math.max(0, (p - 0.6) / 0.4)));
+  return up + on;
 }
 
 function lerpPose(phase: number): [number, number] {

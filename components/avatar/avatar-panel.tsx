@@ -87,6 +87,7 @@ export default function AvatarPanel({
   const lineReaction = active?.reaction;
 
   function startExercise() {
+    setVoice(true);
     setLocalLine({
       id: `exercise-${Date.now()}`,
       text: EXERCISE_LINE,
