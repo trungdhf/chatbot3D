@@ -1,5 +1,9 @@
 export type Emotion = "neutral" | "happy" | "sad" | "angry" | "surprised" | "relaxed";
-export type Gesture = "none" | "wave" | "bow" | "think";
+export type Gesture = "none" | "wave" | "bow" | "think" | "exercise";
+
+/** Morning exercise routine: greeting line + arm/head sequence (see vrm-avatar EXERCISE). */
+export const EXERCISE_LINE =
+  "Chào bạn, chúc bạn buổi sáng vui vẻ! Hãy tập thể dục với mình nhé: hai tay sang ngang, ra trước, lên đầu, sang ngang, rồi xoay đầu một vòng.";
 
 export type Reaction = { emotion: Emotion; gesture: Gesture };
 

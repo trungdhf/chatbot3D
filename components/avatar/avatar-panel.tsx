@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import {
   DEFAULT_AVATAR_URL,
+  EXERCISE_LINE,
   MOUTH_CLOSED,
   detectReaction,
   wordVisemes,
@@ -32,6 +33,8 @@ const CONTROLS: { label: string; emotion?: Emotion; gesture?: Gesture }[] = [
   { label: "Cúi chào", gesture: "bow", emotion: "relaxed" },
 ];
 
+type Line = { id: string; text: string; reaction?: Reaction };
+
 export default function AvatarPanel({
   line,
   thinking,
@@ -40,7 +43,7 @@ export default function AvatarPanel({
   lang = "vi-VN",
 }: {
   /** Latest assistant message; drives emotion, gesture and speech. Falls back to keyword detection without `reaction`. */
-  line: { id: string; text: string; reaction?: Reaction } | null;
+  line: Line | null;
   /** While waiting for the bot, the avatar holds the "think" pose. */
   thinking?: boolean;
   name?: string;
@@ -53,6 +56,8 @@ export default function AvatarPanel({
   const [mouth, setMouth] = useState<Visemes>(MOUTH_CLOSED);
   const [voice, setVoice] = useState(false);
   const mouthRaf = useRef(0);
+  /** Line spoken by a panel button (e.g. exercise); replaced by the next chat line. */
+  const [localLine, setLocalLine] = useState<Line | null>(null);
 
   function trigger(e?: Emotion, g?: Gesture) {
     if (e) setEmotion(e);
@@ -66,9 +71,28 @@ export default function AvatarPanel({
     if (thinking) trigger("neutral", "think");
   }, [thinking]);
 
-  const lineId = line?.id;
-  const lineText = line?.text;
-  const lineReaction = line?.reaction;
+  const chatLineId = line?.id;
+  useEffect(() => setLocalLine(null), [chatLineId]);
+  const [caption, setCaption] = useState(false);
+  useEffect(() => {
+    setCaption(!!localLine);
+    if (!localLine) return;
+    const t = setTimeout(() => setCaption(false), 12000);
+    return () => clearTimeout(t);
+  }, [localLine]);
+
+  const active = localLine ?? line;
+  const lineId = active?.id;
+  const lineText = active?.text;
+  const lineReaction = active?.reaction;
+
+  function startExercise() {
+    setLocalLine({
+      id: `exercise-${Date.now()}`,
+      text: EXERCISE_LINE,
+      reaction: { emotion: "happy", gesture: "exercise" },
+    });
+  }
 
   useEffect(() => {
     if (!lineText) return;
@@ -150,6 +174,11 @@ export default function AvatarPanel({
           mouth={mouth}
           className="h-full w-full"
         />
+        {localLine && caption && (
+          <p className="absolute inset-x-3 bottom-3 rounded-xl bg-black/60 px-3 py-2 text-xs leading-relaxed text-slate-100">
+            {localLine.text}
+          </p>
+        )}
         {name && (
           <span className="absolute left-3 top-3 rounded-full bg-black/60 px-2.5 py-1 text-xs text-emerald-300">
             {name}
@@ -176,6 +205,13 @@ export default function AvatarPanel({
             {c.label}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={startExercise}
+          className="rounded-full border border-emerald-700 px-2.5 py-1 text-xs text-emerald-300 hover:border-emerald-400 hover:text-emerald-200"
+        >
+          Tập thể dục
+        </button>
       </div>
     </div>
   );

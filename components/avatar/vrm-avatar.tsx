@@ -42,6 +42,37 @@ const POSES: Record<"bow" | Emotion, Pose> = {
 const BONES: BoneName[] = ["spine", "chest", "neck", "head"];
 const BOW_DURATION = 2.4;
 
+/**
+ * Exercise routine, in seconds: arms start down, then side / front / overhead / side / down,
+ * followed by a half-circle head roll. Arm poses are [y, z] rotations of the right upperArm
+ * (left mirrors them); the head roll overrides the head offset.
+ */
+const ARM_DOWN: [number, number] = [0, 1.25];
+const ARM_KEYS: { t: number; pose: [number, number] }[] = [
+  { t: 0, pose: ARM_DOWN },
+  { t: 1.5, pose: [0, 0] }, // side
+  { t: 3, pose: [Math.PI / 2, 0] }, // front
+  { t: 4.5, pose: [0, -Math.PI / 2] }, // overhead
+  { t: 6, pose: [0, 0] }, // side
+  { t: 7.5, pose: ARM_DOWN },
+];
+const HEAD_ROLL_START = 7.5;
+const HEAD_ROLL_DURATION = 3;
+const EXERCISE_DURATION = 11;
+
+function lerpPose(phase: number): [number, number] {
+  for (let i = 1; i < ARM_KEYS.length; i++) {
+    const a = ARM_KEYS[i - 1];
+    const b = ARM_KEYS[i];
+    if (phase <= b.t) {
+      const p = (phase - a.t) / (b.t - a.t);
+      const k = p * p * (3 - 2 * p);
+      return [a.pose[0] + (b.pose[0] - a.pose[0]) * k, a.pose[1] + (b.pose[1] - a.pose[1]) * k];
+    }
+  }
+  return ARM_DOWN;
+}
+
 /** VRMA clips: idle loops; gestures play once (wave) or loop while active (think). */
 const CLIPS = {
   idle: "/anims/idle.vrma",
@@ -274,6 +305,7 @@ export default function VrmAvatar({
       const phase = now - s.gestureStart;
       let g: Gesture = s.gesture;
       if (g === "bow" && phase > BOW_DURATION) g = "none";
+      if (g === "exercise" && phase > EXERCISE_DURATION) g = "none";
       if (g === "wave") {
         if (current === "wave" && actions.wave && !actions.wave.isRunning()) waveDone = s.gestureKey;
         if (waveDone === s.gestureKey) g = "none";
@@ -291,6 +323,17 @@ export default function VrmAvatar({
       play(g === "wave" || g === "think" ? g : "idle");
       mixer?.update(dt);
 
+      if (g === "exercise") {
+        const flip = vrm.meta.metaVersion === "0" ? -1 : 1;
+        const [ry, rz] = lerpPose(phase);
+        for (const side of ["right", "left"] as const) {
+          const sign = side === "right" ? 1 : -1;
+          vrm.humanoid.getNormalizedBoneNode(`${side}UpperArm`)?.rotation.set(0, sign * ry, sign * flip * rz);
+          vrm.humanoid.getNormalizedBoneNode(`${side}LowerArm`)?.rotation.set(0, 0, 0);
+          vrm.humanoid.getNormalizedBoneNode(`${side}Hand`)?.rotation.set(0, 0, 0);
+        }
+      }
+
       const target: Pose = { ...POSES[s.emotion] };
       if (g === "bow") Object.assign(target, POSES.bow);
 
@@ -300,6 +343,11 @@ export default function VrmAvatar({
         const [x, y, z] = target[name] ?? [0, 0, 0];
         tmp.set(x, y, z);
         if (name === "head") tmp.y += Math.sin(t * 0.7) * 0.04;
+        if (g === "exercise" && name === "head") {
+          const p = Math.min(1, Math.max(0, (phase - HEAD_ROLL_START) / HEAD_ROLL_DURATION));
+          const amp = 0.4 * Math.sin(Math.PI * p);
+          tmp.set(amp * Math.sin(Math.PI * p), 0, amp * Math.cos(Math.PI * p));
+        }
         if (g === "bow") {
           const k = phase < 0.5 ? phase / 0.5 : phase > 1.8 ? Math.max(0, 1 - (phase - 1.8) / 0.6) : 1;
           tmp.x *= k;
