@@ -4,6 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { VRM, VRMLoaderPlugin, VRMUtils, type VRMHumanBoneName } from "@pixiv/three-vrm";
+import {
+  VRMAnimationLoaderPlugin,
+  createVRMAnimationClip,
+  type VRMAnimation,
+} from "@pixiv/three-vrm-animation";
 import { VISEMES, type Emotion, type Gesture, type Visemes } from "@/lib/avatar";
 
 export type { Gesture };
@@ -19,42 +24,12 @@ type Props = {
   className?: string;
 };
 
-type BoneName =
-  | "spine"
-  | "chest"
-  | "neck"
-  | "head"
-  | "leftUpperArm"
-  | "leftLowerArm"
-  | "rightUpperArm"
-  | "rightLowerArm"
-  | "rightHand";
-
+type BoneName = "spine" | "chest" | "neck" | "head";
 type Pose = Partial<Record<BoneName, [number, number, number]>>;
 
-// VRM rest pose is a T-pose; arms hang by default.
-const IDLE: Pose = {
-  leftUpperArm: [0, 0, -1.4],
-  rightUpperArm: [0, 0, 1.4],
-  leftLowerArm: [0, 0, -0.05],
-  rightLowerArm: [0, 0, 0.05],
-};
-
-const POSES: Record<Exclude<Gesture, "none"> | Emotion, Pose> = {
-  wave: {
-    rightUpperArm: [0, -0.3, -0.2],
-    rightLowerArm: [-1.5, 0, -1.9],
-    rightHand: [0, 0, -0.3],
-    head: [0, 0, -0.08],
-  },
+/** Small rotation offsets layered on top of the VRMA clips. */
+const POSES: Record<"bow" | Emotion, Pose> = {
   bow: { spine: [0.4, 0, 0], chest: [0.15, 0, 0], neck: [0.25, 0, 0] },
-  think: {
-    rightUpperArm: [1.1, 0, 1.25],
-    rightLowerArm: [0, 0, -2.6],
-    rightHand: [0.3, 0, -0.6],
-    neck: [-0.05, 0.25, 0.15],
-    head: [0, 0.1, 0.05],
-  },
   neutral: {},
   happy: { head: [0, 0, 0.08], neck: [-0.05, 0, 0] },
   relaxed: { head: [0.05, 0, 0.05] },
@@ -63,23 +38,16 @@ const POSES: Record<Exclude<Gesture, "none"> | Emotion, Pose> = {
   surprised: { neck: [-0.15, 0, 0], spine: [-0.05, 0, 0] },
 };
 
-const GESTURE_DURATION: Record<Exclude<Gesture, "none">, number> = {
-  wave: 3,
-  bow: 2.4,
-  think: Infinity,
-};
+const BONES: BoneName[] = ["spine", "chest", "neck", "head"];
+const BOW_DURATION = 2.4;
 
-const BONES: BoneName[] = [
-  "spine",
-  "chest",
-  "neck",
-  "head",
-  "leftUpperArm",
-  "leftLowerArm",
-  "rightUpperArm",
-  "rightLowerArm",
-  "rightHand",
-];
+/** VRMA clips: idle loops; gestures play once (wave) or loop while active (think). */
+const CLIPS = {
+  idle: "/anims/idle.vrma",
+  wave: "/anims/Goodbye.vrma",
+  think: "/anims/Thinking.vrma",
+} as const;
+type ClipName = keyof typeof CLIPS;
 
 const FINGERS = ["Index", "Middle", "Ring", "Little"] as const;
 const SEGMENTS = ["Proximal", "Intermediate", "Distal"] as const;
@@ -159,11 +127,43 @@ export default function VrmAvatar({
     ro.observe(el);
 
     let vrm: VRM | null = null;
+    let mixer: THREE.AnimationMixer | null = null;
+    const actions: Partial<Record<ClipName, THREE.AnimationAction>> = {};
+    let current: ClipName = "idle";
+    let waveDone = -1;
     const loader = new GLTFLoader();
     loader.register((parser) => new VRMLoaderPlugin(parser));
+    loader.register((parser) => new VRMAnimationLoaderPlugin(parser));
+
+    const loadClip = async (v: VRM, m: THREE.AnimationMixer, name: ClipName) => {
+      const gltf = await loader.loadAsync(CLIPS[name]);
+      const anim = (gltf.userData.vrmAnimations as VRMAnimation[] | undefined)?.[0];
+      if (!anim || disposed) return;
+      const clip = createVRMAnimationClip(anim, v);
+      // Keep body bone tracks only; fingers, expressions and look-at stay under our control.
+      clip.tracks = clip.tracks.filter(
+        (tr) => tr.name.endsWith(".quaternion") && !/Thumb|Index|Middle|Ring|Little/.test(tr.name),
+      );
+      const action = m.clipAction(clip);
+      if (name === "wave") {
+        action.setLoop(THREE.LoopOnce, 1);
+        action.clampWhenFinished = true;
+      }
+      actions[name] = action;
+    };
+
+    const play = (name: ClipName) => {
+      const next = actions[name];
+      if (!next || name === current) return;
+      const prev = actions[current];
+      next.reset().play();
+      if (prev) next.crossFadeFrom(prev, 0.35, false);
+      current = name;
+    };
+
     loader
       .loadAsync(url)
-      .then((gltf) => {
+      .then(async (gltf) => {
         if (disposed) return;
         const loaded = gltf.userData.vrm as VRM;
         VRMUtils.removeUnnecessaryVertices(gltf.scene);
@@ -177,6 +177,11 @@ export default function VrmAvatar({
         if (vrm.lookAt) vrm.lookAt.target = camera;
 
         relaxFingers(vrm);
+
+        mixer = new THREE.AnimationMixer(loaded.scene);
+        await loadClip(loaded, mixer, "idle");
+        actions.idle?.play();
+        void Promise.all([loadClip(loaded, mixer, "wave"), loadClip(loaded, mixer, "think")]);
 
         const head = vrm.humanoid.getNormalizedBoneNode("head");
         const headY = head ? head.getWorldPosition(new THREE.Vector3()).y : 1.4;
@@ -193,6 +198,12 @@ export default function VrmAvatar({
     let nextBlink = 2;
     let blinkT = -1;
     const tmp = new THREE.Euler();
+    const offset: Record<BoneName, THREE.Euler> = {
+      spine: new THREE.Euler(),
+      chest: new THREE.Euler(),
+      neck: new THREE.Euler(),
+      head: new THREE.Euler(),
+    };
 
     const tick = () => {
       if (disposed) return;
@@ -203,29 +214,39 @@ export default function VrmAvatar({
 
       const s = state.current;
       const now = performance.now() / 1000;
-      let g: Gesture = s.gesture;
-      if (g !== "none" && now - s.gestureStart > GESTURE_DURATION[g]) g = "none";
-
-      const target: Pose = { ...IDLE, ...POSES[s.emotion] };
-      if (g !== "none") Object.assign(target, POSES[g]);
       const phase = now - s.gestureStart;
+      let g: Gesture = s.gesture;
+      if (g === "bow" && phase > BOW_DURATION) g = "none";
+      if (g === "wave") {
+        if (current === "wave" && actions.wave && !actions.wave.isRunning()) waveDone = s.gestureKey;
+        if (waveDone === s.gestureKey) g = "none";
+      }
+
+      // Undo last frame's offsets so bones the clip doesn't touch don't drift.
+      for (const name of BONES) {
+        const node = vrm.humanoid.getNormalizedBoneNode(name);
+        if (!node) continue;
+        node.rotation.x -= offset[name].x;
+        node.rotation.y -= offset[name].y;
+        node.rotation.z -= offset[name].z;
+      }
+
+      play(g === "wave" || g === "think" ? g : "idle");
+      mixer?.update(dt);
+
+      const target: Pose = { ...POSES[s.emotion] };
+      if (g === "bow") Object.assign(target, POSES.bow);
 
       for (const name of BONES) {
         const node = vrm.humanoid.getNormalizedBoneNode(name);
         if (!node) continue;
-        // X (twist about the bone axis) is applied first, then Y, then Z (lift).
-        node.rotation.order = "ZYX";
         const [x, y, z] = target[name] ?? [0, 0, 0];
         tmp.set(x, y, z);
-        // Breathing + gesture-specific motion layered on the target pose.
-        if (name === "chest") tmp.x += Math.sin(t * 1.6) * 0.015;
         if (name === "head") tmp.y += Math.sin(t * 0.7) * 0.04;
-        if (g === "wave" && name === "rightLowerArm") tmp.x += Math.sin(phase * 9) * 0.35;
         if (g === "bow") {
           const k = phase < 0.5 ? phase / 0.5 : phase > 1.8 ? Math.max(0, 1 - (phase - 1.8) / 0.6) : 1;
           tmp.x *= k;
         }
-        if (g === "think" && name === "head") tmp.y += Math.sin(phase * 1.3) * 0.05;
         if (s.emotion === "happy" && name === "spine") tmp.x += Math.sin(t * 4) * 0.01;
         // VRM 0.x normalized bones sit in a frame rotated 180° around Y.
         if (vrm.meta.metaVersion === "0") {
@@ -233,9 +254,12 @@ export default function VrmAvatar({
           tmp.z = -tmp.z;
         }
         const k = 1 - Math.exp(-dt * 8);
-        node.rotation.x += (tmp.x - node.rotation.x) * k;
-        node.rotation.y += (tmp.y - node.rotation.y) * k;
-        node.rotation.z += (tmp.z - node.rotation.z) * k;
+        offset[name].x += (tmp.x - offset[name].x) * k;
+        offset[name].y += (tmp.y - offset[name].y) * k;
+        offset[name].z += (tmp.z - offset[name].z) * k;
+        node.rotation.x += offset[name].x;
+        node.rotation.y += offset[name].y;
+        node.rotation.z += offset[name].z;
       }
 
       const em = vrm.expressionManager;

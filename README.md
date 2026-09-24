@@ -21,6 +21,7 @@ Không có `GEMINI_API_KEY` app vẫn chạy: đố vui / chuyện cười / tr�
 
 ## Avatar
 
+- Cử động dùng file VRMA trong `public/anims/` (phát bằng `@pixiv/three-vrm-animation`, tự retarget lên mọi model): `idle.vrma` (idle_loop của pixiv/ChatVRM, MIT), `Goodbye.vrma` (vẫy tay), `Thinking.vrma` (suy nghĩ) lấy từ tk256ailab/vrm-viewer — nguồn gốc/license 2 file này chưa rõ, thay bằng file của bạn (Mixamo → VRMA) trước khi dùng thương mại. Cúi chào và cảm xúc vẫn là offset xoay khớp trong `vrm-avatar.tsx`. Thêm cử động mới: bỏ file `.vrma` vào `public/anims/` và thêm vào `CLIPS`.
 - Model mặc định: `public/avatars/real2.vrm` — cô gái công sở (sơ mi + váy), chuyển từ GLB bằng `scripts/glb2vrm.py`. Model anime mẫu của pixiv/three-vrm (MIT) vẫn ở `public/avatars/sample.vrm` (`?model=sample`).
 - Thay model: bỏ file `.vrm` khác (VRM 0.x hoặc 1.0 đều được) vào `public/avatars/` và đổi `DEFAULT_AVATAR_URL` trong `lib/avatar.ts` (hoặc truyền `modelUrl` cho `AvatarPanel`).
 
