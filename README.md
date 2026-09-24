@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# chatbot3D
 
-## Getting Started
+Chatbot "bạn thân" với avatar 3D (VRM): tán gẫu, trêu đùa, chơi đố vui. Next.js 15 + Three.js + `@pixiv/three-vrm`.
 
-First, run the development server:
+## Chạy
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # tuỳ chọn: điền GEMINI_API_KEY để tán gẫu bằng LLM
+npm run dev                  # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Không có `GEMINI_API_KEY` app vẫn chạy: đố vui / chuyện cười / trêu đùa dùng luật trong `lib/llm.ts`, tán gẫu dùng câu mẫu trong `data/persona.json`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Cấu trúc
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `app/chat.tsx` — UI chat + trạng thái đố (`quiz`) giữ ở client, gửi kèm mỗi request.
+- `app/api/chat/route.ts` → `lib/llm.ts` — luật đố/đùa (offline) rồi mới tới Gemini cho tán gẫu.
+- `data/persona.json` — tên, tính cách, câu gợi ý, câu đùa, **câu đố** (`q`, `a[]` các đáp án chấp nhận, `hint`). Thêm câu đố ở đây.
+- `components/avatar/` — render VRM, 5 động tác (cười, vẫy tay, buồn, suy nghĩ, cúi chào), tự phản ứng theo nội dung trả lời (`lib/avatar.ts`), đọc giọng bằng Web Speech API + lip-sync giả lập.
 
-## Learn More
+## Avatar
 
-To learn more about Next.js, take a look at the following resources:
+- Cử động dùng file VRMA trong `public/anims/` (phát bằng `@pixiv/three-vrm-animation`, tự retarget lên mọi model): `idle.vrma` (idle_loop của pixiv/ChatVRM, MIT), `Goodbye.vrma` (vẫy tay), `Thinking.vrma` (suy nghĩ) lấy từ tk256ailab/vrm-viewer — nguồn gốc/license 2 file này chưa rõ, thay bằng file của bạn (Mixamo → VRMA) trước khi dùng thương mại. Cúi chào và cảm xúc vẫn là offset xoay khớp trong `vrm-avatar.tsx`. Thêm cử động mới: bỏ file `.vrma` vào `public/anims/` và thêm vào `CLIPS`.
+- Model mặc định: `public/avatars/real2.vrm` — cô gái công sở (sơ mi + váy), chuyển từ GLB bằng `scripts/glb2vrm.py`. Model anime mẫu của pixiv/three-vrm (MIT) vẫn ở `public/avatars/sample.vrm` (`?model=sample`).
+- Thay model: bỏ file `.vrm` khác (VRM 0.x hoặc 1.0 đều được) vào `public/avatars/` và đổi `DEFAULT_AVATAR_URL` trong `lib/avatar.ts` (hoặc truyền `modelUrl` cho `AvatarPanel`).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Kiểm tra
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run typecheck && npm run lint && npm run build
+```
 
-## Deploy on Vercel
+## Chuyển GLB (Mixamo rig + ARKit blendshape) sang VRM
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+python3 scripts/glb2vrm.py model.glb public/avatars/real.vrm
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Mở `http://localhost:3000/?model=real` để xem (query `?model=<tên>` chọn `public/avatars/<tên>.vrm`). Có sẵn: `real2` (mặc định, sơ mi + váy công sở), `sample` (anime), `real` (áo thun + jeans).
