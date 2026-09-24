@@ -21,7 +21,7 @@ Không có `GEMINI_API_KEY` app vẫn chạy: đố vui / chuyện cười / tr�
 
 ## Avatar
 
-- Model mặc định: `public/avatars/sample.vrm` — model mẫu VRM 1.0 của pixiv/three-vrm (MIT), có đủ biểu cảm happy/sad/aa/blink.
+- Model mặc định: `public/avatars/real2.vrm` — cô gái công sở (sơ mi + váy), chuyển từ GLB bằng `scripts/glb2vrm.py`. Model anime mẫu của pixiv/three-vrm (MIT) vẫn ở `public/avatars/sample.vrm` (`?model=sample`).
 - Thay model: bỏ file `.vrm` khác (VRM 0.x hoặc 1.0 đều được) vào `public/avatars/` và đổi `DEFAULT_AVATAR_URL` trong `lib/avatar.ts` (hoặc truyền `modelUrl` cho `AvatarPanel`).
 
 ## Kiểm tra
@@ -36,4 +36,4 @@ npm run typecheck && npm run lint && npm run build
 python3 scripts/glb2vrm.py model.glb public/avatars/real.vrm
 ```
 
-Mở `http://localhost:3000/?model=real` để xem (query `?model=<tên>` chọn `public/avatars/<tên>.vrm`). Có sẵn: `sample` (mặc định, anime), `real` (áo thun + jeans), `real2` (sơ mi + váy công sở).
+Mở `http://localhost:3000/?model=real` để xem (query `?model=<tên>` chọn `public/avatars/<tên>.vrm`). Có sẵn: `real2` (mặc định, sơ mi + váy công sở), `sample` (anime), `real` (áo thun + jeans).
