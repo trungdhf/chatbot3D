@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { VRM, VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
+import { VRM, VRMLoaderPlugin, VRMUtils, type VRMHumanBoneName } from "@pixiv/three-vrm";
 import { VISEMES, type Emotion, type Gesture, type Visemes } from "@/lib/avatar";
 
 export type { Gesture };
@@ -34,24 +34,24 @@ type Pose = Partial<Record<BoneName, [number, number, number]>>;
 
 // VRM rest pose is a T-pose; arms hang by default.
 const IDLE: Pose = {
-  leftUpperArm: [0, 0, -1.25],
-  rightUpperArm: [0, 0, 1.25],
-  leftLowerArm: [0, 0, -0.1],
-  rightLowerArm: [0, 0, 0.1],
+  leftUpperArm: [0, 0, -1.4],
+  rightUpperArm: [0, 0, 1.4],
+  leftLowerArm: [0, 0, -0.05],
+  rightLowerArm: [0, 0, 0.05],
 };
 
 const POSES: Record<Exclude<Gesture, "none"> | Emotion, Pose> = {
   wave: {
-    rightUpperArm: [0.2, -0.3, -0.2],
-    rightLowerArm: [0, 0, -1.9],
+    rightUpperArm: [0, -0.3, -0.2],
+    rightLowerArm: [-1.5, 0, -1.9],
     rightHand: [0, 0, -0.3],
     head: [0, 0, -0.08],
   },
   bow: { spine: [0.4, 0, 0], chest: [0.15, 0, 0], neck: [0.25, 0, 0] },
   think: {
-    rightUpperArm: [-0.55, 0, 1.4],
-    rightLowerArm: [1.7, 0, -2.15],
-    rightHand: [0, 0.3, -0.5],
+    rightUpperArm: [1.1, 0, 1.25],
+    rightLowerArm: [0, 0, -2.6],
+    rightHand: [0.3, 0, -0.6],
     neck: [-0.05, 0.25, 0.15],
     head: [0, 0.1, 0.05],
   },
@@ -80,6 +80,31 @@ const BONES: BoneName[] = [
   "rightLowerArm",
   "rightHand",
 ];
+
+const FINGERS = ["Index", "Middle", "Ring", "Little"] as const;
+const SEGMENTS = ["Proximal", "Intermediate", "Distal"] as const;
+
+/** Close the T-pose finger spread into a relaxed, lightly curled hand. */
+function relaxFingers(vrm: VRM) {
+  for (const side of ["left", "right"] as const) {
+    const sign = side === "left" ? -1 : 1;
+    FINGERS.forEach((finger, i) => {
+      SEGMENTS.forEach((seg, j) => {
+        const node = vrm.humanoid.getNormalizedBoneNode(
+          `${side}${finger}${seg}` as VRMHumanBoneName,
+        );
+        if (!node) return;
+        node.rotation.set(0, j === 0 ? sign * (i - 1.5) * 0.08 : 0, sign * (j === 0 ? 0.25 : 0.35));
+      });
+    });
+    for (const seg of ["Metacarpal", "Proximal", "Distal"] as const) {
+      const node = vrm.humanoid.getNormalizedBoneNode(
+        `${side}Thumb${seg}` as VRMHumanBoneName,
+      );
+      if (node) node.rotation.set(0, sign * -0.25, seg === "Metacarpal" ? 0 : sign * 0.2);
+    }
+  }
+}
 
 export default function VrmAvatar({
   url,
@@ -151,6 +176,8 @@ export default function VrmAvatar({
         vrm = loaded;
         if (vrm.lookAt) vrm.lookAt.target = camera;
 
+        relaxFingers(vrm);
+
         const head = vrm.humanoid.getNormalizedBoneNode("head");
         const headY = head ? head.getWorldPosition(new THREE.Vector3()).y : 1.4;
         camera.position.set(0, headY - 0.25, 2.6);
@@ -186,6 +213,8 @@ export default function VrmAvatar({
       for (const name of BONES) {
         const node = vrm.humanoid.getNormalizedBoneNode(name);
         if (!node) continue;
+        // X (twist about the bone axis) is applied first, then Y, then Z (lift).
+        node.rotation.order = "ZYX";
         const [x, y, z] = target[name] ?? [0, 0, 0];
         tmp.set(x, y, z);
         // Breathing + gesture-specific motion layered on the target pose.
