@@ -44,8 +44,8 @@ const BOW_DURATION = 2.4;
 
 /**
  * Exercise routine, in seconds: arms start down, then side / front / overhead / side / down,
- * followed by a half-circle head roll. Arm poses are [y, z] rotations of the right upperArm
- * (left mirrors them); the head roll overrides the head offset.
+ * followed by a comic 180° head spin around the screen axis, pivoting at the neck. Arm poses
+ * are [y, z] rotations of the right upperArm (left mirrors them).
  */
 const ARM_DOWN: [number, number] = [0, 1.25];
 const ARM_KEYS: { t: number; pose: [number, number] }[] = [
@@ -57,8 +57,18 @@ const ARM_KEYS: { t: number; pose: [number, number] }[] = [
   { t: 7.5, pose: ARM_DOWN },
 ];
 const HEAD_ROLL_START = 7.5;
-const HEAD_ROLL_DURATION = 3;
-const EXERCISE_DURATION = 11;
+const HEAD_ROLL_DURATION = 3.5;
+const EXERCISE_DURATION = 12;
+/** Distance from the head joint up to the head's centre of rotation (m). */
+const HEAD_CENTER = 0.1;
+
+/** 0 → 1 (upside down) → 0 over the roll: ease in, hold, ease out. */
+function headSpin(p: number) {
+  const up = Math.min(1, p / 0.4);
+  const down = Math.min(1, Math.max(0, (p - 0.6) / 0.4));
+  const ease = (x: number) => x * x * (3 - 2 * x);
+  return ease(up) - ease(down);
+}
 
 function lerpPose(phase: number): [number, number] {
   for (let i = 1; i < ARM_KEYS.length; i++) {
@@ -285,6 +295,7 @@ export default function VrmAvatar({
     let nextBlink = 2;
     let blinkT = -1;
     let restLid = 0;
+    let headRest: THREE.Vector3 | null = null;
     const tmp = new THREE.Euler();
     const offset: Record<BoneName, THREE.Euler> = {
       spine: new THREE.Euler(),
@@ -345,8 +356,7 @@ export default function VrmAvatar({
         if (name === "head") tmp.y += Math.sin(t * 0.7) * 0.04;
         if (g === "exercise" && name === "head") {
           const p = Math.min(1, Math.max(0, (phase - HEAD_ROLL_START) / HEAD_ROLL_DURATION));
-          const amp = 0.4 * Math.sin(Math.PI * p);
-          tmp.set(amp * Math.sin(Math.PI * p), 0, amp * Math.cos(Math.PI * p));
+          tmp.set(0, 0, Math.PI * headSpin(p));
         }
         if (g === "bow") {
           const k = phase < 0.5 ? phase / 0.5 : phase > 1.8 ? Math.max(0, 1 - (phase - 1.8) / 0.6) : 1;
@@ -365,6 +375,19 @@ export default function VrmAvatar({
         node.rotation.x += offset[name].x;
         node.rotation.y += offset[name].y;
         node.rotation.z += offset[name].z;
+      }
+
+      // Spin the head about its own centre (not the neck joint) so it flips above the
+      // shoulders instead of sinking into the chest.
+      const headNode = vrm.humanoid.getNormalizedBoneNode("head");
+      if (headNode) {
+        if (!headRest) headRest = headNode.position.clone();
+        headNode.position.copy(headRest);
+        if (g === "exercise") {
+          const a = offset.head.z;
+          headNode.position.x += HEAD_CENTER * Math.sin(a);
+          headNode.position.y += HEAD_CENTER * (1 - Math.cos(a));
+        }
       }
 
       const em = vrm.expressionManager;
