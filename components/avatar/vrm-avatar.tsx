@@ -67,6 +67,9 @@ const BLINK_OPEN = 0.2;
 const HEAD_ROLL_START = 7.5;
 const HEAD_ROLL_DURATION = 4;
 const EXERCISE_DURATION = 12.5;
+/** Full-body turnaround: ease to 180° (back to camera), hold, then on to 360°. */
+const TURN_DURATION = 7;
+
 /** Distance from the head joint up to the head's centre of rotation (m). */
 const HEAD_CENTER = 0.1;
 
@@ -348,6 +351,10 @@ export default function VrmAvatar({
       let g: Gesture = s.gesture;
       if (g === "bow" && phase > BOW_DURATION) g = "none";
       if (g === "exercise" && phase > EXERCISE_DURATION) g = "none";
+      if (g === "turn" && phase > TURN_DURATION) g = "none";
+      const baseY = vrm.meta.metaVersion === "0" ? Math.PI : 0;
+      vrm.scene.rotation.y =
+        baseY + (g === "turn" ? Math.PI * headSpin(Math.min(1, phase / TURN_DURATION)) : 0);
       if (g === "wave") {
         if (current === "wave" && actions.wave && !actions.wave.isRunning()) waveDone = s.gestureKey;
         if (waveDone === s.gestureKey) g = "none";

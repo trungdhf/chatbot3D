@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   DEFAULT_AVATAR_URL,
   EXERCISE_LINE,
+  TURN_LINE,
   MOUTH_CLOSED,
   detectReaction,
   wordVisemes,
@@ -86,12 +87,12 @@ export default function AvatarPanel({
   const lineText = active?.text;
   const lineReaction = active?.reaction;
 
-  function startExercise() {
+  function startRoutine(gesture: Gesture, text: string) {
     setVoice(true);
     setLocalLine({
-      id: `exercise-${Date.now()}`,
-      text: EXERCISE_LINE,
-      reaction: { emotion: "happy", gesture: "exercise" },
+      id: `${gesture}-${Date.now()}`,
+      text,
+      reaction: { emotion: "happy", gesture },
     });
   }
 
@@ -208,10 +209,17 @@ export default function AvatarPanel({
         ))}
         <button
           type="button"
-          onClick={startExercise}
+          onClick={() => startRoutine("exercise", EXERCISE_LINE)}
           className="rounded-full border border-emerald-700 px-2.5 py-1 text-xs text-emerald-300 hover:border-emerald-400 hover:text-emerald-200"
         >
           Tập thể dục
+        </button>
+        <button
+          type="button"
+          onClick={() => startRoutine("turn", TURN_LINE)}
+          className="rounded-full border border-emerald-700 px-2.5 py-1 text-xs text-emerald-300 hover:border-emerald-400 hover:text-emerald-200"
+        >
+          Xoay người
         </button>
       </div>
     </div>

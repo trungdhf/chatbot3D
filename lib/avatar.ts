@@ -1,5 +1,8 @@
 export type Emotion = "neutral" | "happy" | "sad" | "angry" | "surprised" | "relaxed";
-export type Gesture = "none" | "wave" | "bow" | "think" | "exercise";
+export type Gesture = "none" | "wave" | "bow" | "think" | "exercise" | "turn";
+
+/** Full-body turnaround so viewers can see the model in 3D (see vrm-avatar TURN). */
+export const TURN_LINE = "Mình xoay một vòng cho bạn xem nhé!";
 
 /** Morning exercise routine: greeting line + arm/head sequence (see vrm-avatar EXERCISE). */
 export const EXERCISE_LINE =
