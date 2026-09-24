@@ -36,4 +36,4 @@ npm run typecheck && npm run lint && npm run build
 python3 scripts/glb2vrm.py model.glb public/avatars/real.vrm
 ```
 
-Mở `http://localhost:3000/?model=real` để xem (query `?model=<tên>` chọn `public/avatars/<tên>.vrm`).
+Mở `http://localhost:3000/?model=real` để xem (query `?model=<tên>` chọn `public/avatars/<tên>.vrm`). Có sẵn: `sample` (mặc định, anime), `real` (áo thun + jeans), `real2` (sơ mi + váy công sở).
