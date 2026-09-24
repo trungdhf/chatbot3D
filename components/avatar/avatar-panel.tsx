@@ -2,7 +2,25 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
-import { DEFAULT_AVATAR_URL, detectReaction, type Emotion, type Gesture, type Reaction } from "@/lib/avatar";
+import {
+  DEFAULT_AVATAR_URL,
+  MOUTH_CLOSED,
+  detectReaction,
+  wordVisemes,
+  type Emotion,
+  type Gesture,
+  type Reaction,
+  type Viseme,
+  type Visemes,
+} from "@/lib/avatar";
+
+/** Estimated speaking time per vowel at rate ~1 (ms). */
+const MS_PER_VOWEL = 150;
+const MS_PER_WORD_MIN = 180;
+
+function mix(v: Viseme, amount: number): Visemes {
+  return { ...MOUTH_CLOSED, [v]: amount };
+}
 
 const VrmAvatar = dynamic(() => import("./vrm-avatar"), { ssr: false });
 
@@ -32,7 +50,7 @@ export default function AvatarPanel({
   const [emotion, setEmotion] = useState<Emotion>("neutral");
   const [gesture, setGesture] = useState<Gesture>("none");
   const [gestureKey, setGestureKey] = useState(0);
-  const [mouth, setMouth] = useState(0);
+  const [mouth, setMouth] = useState<Visemes>(MOUTH_CLOSED);
   const [voice, setVoice] = useState(false);
   const mouthRaf = useRef(0);
 
@@ -68,18 +86,48 @@ export default function AvatarPanel({
     const v = speechSynthesis.getVoices().find((x) => x.lang.startsWith(lang.slice(0, 2)));
     if (v) u.voice = v;
 
-    // No audio analyser for SpeechSynthesis, so fake syllable openness while speaking.
+    // SpeechSynthesis exposes no audio, so sync on word boundaries: each spoken word plays
+    // its vowel shapes in order, then the mouth closes until the next boundary fires.
+    let word: { visemes: Viseme[]; start: number; duration: number } | null = null;
+    let gotBoundary = false;
+    let started = 0;
     const animate = () => {
-      const t = performance.now() / 1000;
-      setMouth(0.35 + 0.35 * Math.abs(Math.sin(t * 11)) * (0.6 + 0.4 * Math.sin(t * 3.7)));
+      const now = performance.now();
+      if (word) {
+        const p = (now - word.start) / word.duration;
+        if (p < 1) {
+          const i = Math.min(word.visemes.length - 1, Math.floor(p * word.visemes.length));
+          const local = (p * word.visemes.length) % 1;
+          setMouth(mix(word.visemes[i], 0.45 + 0.55 * Math.sin(Math.PI * local)));
+        } else {
+          word = null;
+          setMouth(MOUTH_CLOSED);
+        }
+      } else if (!gotBoundary && now - started > 400) {
+        // Voice without boundary events: fall back to a generic syllable rhythm.
+        const t = now / 1000;
+        setMouth(mix("aa", 0.3 + 0.4 * Math.abs(Math.sin(t * 11))));
+      }
       mouthRaf.current = requestAnimationFrame(animate);
     };
     const stop = () => {
       cancelAnimationFrame(mouthRaf.current);
-      setMouth(0);
+      setMouth(MOUTH_CLOSED);
     };
     u.onstart = () => {
+      started = performance.now();
       mouthRaf.current = requestAnimationFrame(animate);
+    };
+    u.onboundary = (ev) => {
+      if (ev.name !== "word") return;
+      gotBoundary = true;
+      const len = ev.charLength || u.text.slice(ev.charIndex).search(/\s|$/);
+      const visemes = wordVisemes(u.text.slice(ev.charIndex, ev.charIndex + len));
+      word = {
+        visemes,
+        start: performance.now(),
+        duration: Math.max(MS_PER_WORD_MIN, (visemes.length * MS_PER_VOWEL) / u.rate),
+      };
     };
     u.onend = stop;
     u.onerror = stop;

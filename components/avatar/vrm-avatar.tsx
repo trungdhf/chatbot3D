@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { VRM, VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
-import type { Emotion, Gesture } from "@/lib/avatar";
+import { VISEMES, type Emotion, type Gesture, type Visemes } from "@/lib/avatar";
 
 export type { Gesture };
 
@@ -14,8 +14,8 @@ type Props = {
   gesture: Gesture;
   /** Bump to replay the same gesture. */
   gestureKey: number;
-  /** 0..1 mouth openness driven from outside (TTS). */
-  mouth: number;
+  /** Viseme weights 0..1 driven from outside (TTS). */
+  mouth: Visemes;
   className?: string;
 };
 
@@ -222,9 +222,10 @@ export default function VrmAvatar({
           const cur = em.getValue(k) ?? 0;
           em.setValue(k, cur + (v - cur) * (1 - Math.exp(-dt * 6)));
         }
-        const m = s.mouth;
-        em.setValue("aa", m);
-        em.setValue("oh", m * 0.3);
+        for (const v of VISEMES) {
+          const cur = em.getValue(v) ?? 0;
+          em.setValue(v, cur + (s.mouth[v] - cur) * (1 - Math.exp(-dt * 25)));
+        }
 
         if (blinkT < 0 && t > nextBlink) {
           blinkT = 0;
