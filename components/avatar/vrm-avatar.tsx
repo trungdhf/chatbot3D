@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { VRM, VRMLoaderPlugin, VRMUtils, type VRMHumanBoneName } from "@pixiv/three-vrm";
 import {
   VRMAnimationLoaderPlugin,
@@ -48,6 +49,49 @@ const CLIPS = {
   think: "/anims/Thinking.vrma",
 } as const;
 type ClipName = keyof typeof CLIPS;
+
+function toPhysical(src: THREE.MeshStandardMaterial) {
+  const m = new THREE.MeshPhysicalMaterial();
+  THREE.MeshStandardMaterial.prototype.copy.call(m, src);
+  return m;
+}
+
+/** Upgrade PBR materials of realistic (non-MToon) models: soft skin, glossy eyes with catchlights. */
+function enhanceRealisticMaterials(vrm: VRM) {
+  vrm.scene.traverse((o) => {
+    if (!(o instanceof THREE.Mesh)) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    mats.forEach((mat, i) => {
+      if (!(mat instanceof THREE.MeshStandardMaterial) || mat instanceof THREE.MeshPhysicalMaterial) return;
+      const name = `${o.name} ${mat.name}`;
+      let next: THREE.Material | null = null;
+      if (/cornea/i.test(name)) {
+        const m = toPhysical(mat);
+        m.roughness = 0.05;
+        m.roughnessMap = null;
+        m.envMapIntensity = 1.5;
+        next = m;
+      } else if (/eyeball|iris|\beye/i.test(name)) {
+        const m = toPhysical(mat);
+        m.clearcoat = 0.6;
+        m.clearcoatRoughness = 0.08;
+        m.envMapIntensity = 0.5;
+        next = m;
+      } else if (/head|body|skin|face/i.test(name)) {
+        const m = toPhysical(mat);
+        m.sheen = 0.2;
+        m.sheenRoughness = 0.9;
+        m.sheenColor = new THREE.Color(0xffb8a0);
+        m.envMapIntensity = 1;
+        next = m;
+      }
+      if (!next) return;
+      if (Array.isArray(o.material)) o.material[i] = next;
+      else o.material = next;
+      mat.dispose();
+    });
+  });
+}
 
 const FINGERS = ["Index", "Middle", "Ring", "Little"] as const;
 const SEGMENTS = ["Proximal", "Intermediate", "Distal"] as const;
@@ -109,6 +153,10 @@ export default function VrmAvatar({
     const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 20);
     const gaze = new THREE.Object3D();
     scene.add(gaze);
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    scene.environmentIntensity = 0.35;
+    pmrem.dispose();
     scene.add(new THREE.AmbientLight(0xffffff, 0.9));
     const key = new THREE.DirectionalLight(0xfff1e6, 1.6);
     key.position.set(1, 2, 2);
@@ -144,7 +192,7 @@ export default function VrmAvatar({
       const clip = createVRMAnimationClip(anim, v);
       // Keep body bone tracks only; fingers, expressions and look-at stay under our control.
       clip.tracks = clip.tracks.filter(
-        (tr) => tr.name.endsWith(".quaternion") && !/Thumb|Index|Middle|Ring|Little/.test(tr.name),
+        (tr) => tr.name.endsWith(".quaternion") && !/Thumb|Index|Middle|Ring|Little|Eye/.test(tr.name),
       );
       const action = m.clipAction(clip);
       if (name === "wave") {
@@ -177,6 +225,7 @@ export default function VrmAvatar({
         scene.add(loaded.scene);
         vrm = loaded;
         relaxFingers(vrm);
+        enhanceRealisticMaterials(vrm);
 
         mixer = new THREE.AnimationMixer(loaded.scene);
         await loadClip(loaded, mixer, "idle");
@@ -188,7 +237,7 @@ export default function VrmAvatar({
         camera.position.set(0, headY - 0.25, 2.6);
         camera.lookAt(0, headY - 0.3, 0);
         // Eye-level target in front of the model so eyes meet the viewer.
-        gaze.position.set(0, headY + 0.05, 2.6);
+        gaze.position.copy(camera.position);
         if (vrm.lookAt) vrm.lookAt.target = gaze;
         setStatus("ready");
       })
