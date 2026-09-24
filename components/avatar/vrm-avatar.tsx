@@ -61,6 +61,9 @@ const ARM_KEYS: { t: number; pose: [number, number] }[] = [
   { t: 6, pose: [0, 0] }, // side
   { t: 7.5, pose: ARM_DOWN },
 ];
+const BLINK_CLOSE = 0.1;
+const BLINK_HOLD = 0.05;
+const BLINK_OPEN = 0.2;
 const HEAD_ROLL_START = 7.5;
 const HEAD_ROLL_DURATION = 3.5;
 const EXERCISE_DURATION = 12;
@@ -463,13 +466,19 @@ export default function VrmAvatar({
 
         if (blinkT < 0 && t > nextBlink) {
           blinkT = 0;
-          nextBlink = t + 2.5 + Math.random() * 3;
+          // Occasional quick double blink, otherwise every 2–6 s.
+          nextBlink = t + (Math.random() < 0.25 ? 0.5 : 2 + Math.random() * 4);
         }
         if (blinkT >= 0) {
           blinkT += dt;
-          const v = blinkT < 0.08 ? blinkT / 0.08 : Math.max(0, 1 - (blinkT - 0.08) / 0.1);
+          const v =
+            blinkT < BLINK_CLOSE
+              ? blinkT / BLINK_CLOSE
+              : blinkT < BLINK_CLOSE + BLINK_HOLD
+                ? 1
+                : Math.max(0, 1 - (blinkT - BLINK_CLOSE - BLINK_HOLD) / BLINK_OPEN);
           em.setValue("blink", Math.max(v, restLid));
-          if (blinkT > 0.2) blinkT = -1;
+          if (blinkT > BLINK_CLOSE + BLINK_HOLD + BLINK_OPEN) blinkT = -1;
         } else {
           em.setValue("blink", restLid);
         }
@@ -481,7 +490,7 @@ export default function VrmAvatar({
         vrm.lookAt.pitch = 15;
       } else if (vrm.lookAt) {
         gaze.position.copy(camera.position);
-        gaze.position.y -= 2.5;
+        gaze.position.y -= 0.4;
         vrm.lookAt.target = gaze;
       }
 
