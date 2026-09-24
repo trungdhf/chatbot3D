@@ -107,6 +107,8 @@ export default function VrmAvatar({
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 20);
+    const gaze = new THREE.Object3D();
+    scene.add(gaze);
     scene.add(new THREE.AmbientLight(0xffffff, 0.9));
     const key = new THREE.DirectionalLight(0xfff1e6, 1.6);
     key.position.set(1, 2, 2);
@@ -174,8 +176,6 @@ export default function VrmAvatar({
         });
         scene.add(loaded.scene);
         vrm = loaded;
-        if (vrm.lookAt) vrm.lookAt.target = camera;
-
         relaxFingers(vrm);
 
         mixer = new THREE.AnimationMixer(loaded.scene);
@@ -187,6 +187,9 @@ export default function VrmAvatar({
         const headY = head ? head.getWorldPosition(new THREE.Vector3()).y : 1.4;
         camera.position.set(0, headY - 0.25, 2.6);
         camera.lookAt(0, headY - 0.3, 0);
+        // Eye-level target in front of the model so eyes meet the viewer.
+        gaze.position.set(0, headY + 0.05, 2.6);
+        if (vrm.lookAt) vrm.lookAt.target = gaze;
         setStatus("ready");
       })
       .catch((e) => {
@@ -297,7 +300,7 @@ export default function VrmAvatar({
         vrm.lookAt.yaw = 20;
         vrm.lookAt.pitch = 15;
       } else if (vrm.lookAt) {
-        vrm.lookAt.target = camera;
+        vrm.lookAt.target = gaze;
       }
 
       vrm.update(dt);

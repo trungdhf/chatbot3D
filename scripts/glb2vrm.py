@@ -100,7 +100,7 @@ gltf.setdefault("extensions", {})["VRMC_vrm"] = {
     },
     "humanoid": {"humanBones": human_bones},
     "firstPerson": {"meshAnnotations": []},
-    "lookAt": {"type": "expression", "offsetFromHeadBone": [0, 0.06, 0], "rangeMapHorizontalInner": {"inputMaxValue": 90, "outputScale": 1}, "rangeMapHorizontalOuter": {"inputMaxValue": 90, "outputScale": 1}, "rangeMapVerticalDown": {"inputMaxValue": 90, "outputScale": 1}, "rangeMapVerticalUp": {"inputMaxValue": 90, "outputScale": 1}},
+    "lookAt": {"type": "bone", "offsetFromHeadBone": [0, 0.06, 0], "rangeMapHorizontalInner": {"inputMaxValue": 90, "outputScale": 10}, "rangeMapHorizontalOuter": {"inputMaxValue": 90, "outputScale": 10}, "rangeMapVerticalDown": {"inputMaxValue": 90, "outputScale": 10}, "rangeMapVerticalUp": {"inputMaxValue": 90, "outputScale": 10}},
     "expressions": {"preset": preset, "custom": {}},
 }
 
