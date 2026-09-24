@@ -48,6 +48,11 @@ const BOW_DURATION = 2.4;
  * are [y, z] rotations of the right upperArm (left mirrors them).
  */
 const ARM_DOWN: [number, number] = [0, 1.25];
+/** Relaxed standing: upper arms hang straight beside the body, elbows barely bent. */
+const ARM_RELAX_Z = 1.36;
+const ELBOW_RELAX = 0.12;
+const relaxQ = new THREE.Quaternion();
+const relaxE = new THREE.Euler();
 const ARM_KEYS: { t: number; pose: [number, number] }[] = [
   { t: 0, pose: ARM_DOWN },
   { t: 1.5, pose: [0, 0] }, // side
@@ -318,6 +323,7 @@ export default function VrmAvatar({
     let blinkT = -1;
     let restLid = 0;
     let headRest: THREE.Vector3 | null = null;
+    let armBlend = 1;
     const tmp = new THREE.Euler();
     const offset: Record<BoneName, THREE.Euler> = {
       spine: new THREE.Euler(),
@@ -356,8 +362,33 @@ export default function VrmAvatar({
       play(g === "wave" || g === "think" ? g : "idle");
       mixer?.update(dt);
 
+      const flip = vrm.meta.metaVersion === "0" ? -1 : 1;
+      // Idle clip holds the arms slightly out; blend them down to a natural hang.
+      const wantRelax = g === "none" || g === "bow";
+      armBlend += ((wantRelax ? 1 : 0) - armBlend) * Math.min(1, dt * 4);
+      if (armBlend > 0.01) {
+        const breathe = Math.sin(t * 0.9) * 0.015;
+        for (const side of ["right", "left"] as const) {
+          const sign = side === "right" ? 1 : -1;
+          const upper = vrm.humanoid.getNormalizedBoneNode(`${side}UpperArm`);
+          const lower = vrm.humanoid.getNormalizedBoneNode(`${side}LowerArm`);
+          const hand = vrm.humanoid.getNormalizedBoneNode(`${side}Hand`);
+          if (upper) {
+            relaxQ.setFromEuler(relaxE.set(0, 0, sign * flip * (ARM_RELAX_Z + breathe)));
+            upper.quaternion.slerp(relaxQ, armBlend);
+          }
+          if (lower) {
+            relaxQ.setFromEuler(relaxE.set(0, sign * -ELBOW_RELAX, 0));
+            lower.quaternion.slerp(relaxQ, armBlend);
+          }
+          if (hand) {
+            relaxQ.setFromEuler(relaxE.set(0, 0, sign * flip * 0.08));
+            hand.quaternion.slerp(relaxQ, armBlend);
+          }
+        }
+      }
+
       if (g === "exercise") {
-        const flip = vrm.meta.metaVersion === "0" ? -1 : 1;
         const [ry, rz] = lerpPose(phase);
         for (const side of ["right", "left"] as const) {
           const sign = side === "right" ? 1 : -1;
