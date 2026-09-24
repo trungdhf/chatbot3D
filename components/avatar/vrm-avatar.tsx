@@ -57,7 +57,8 @@ function toPhysical(src: THREE.MeshStandardMaterial) {
 }
 
 /** Upgrade PBR materials of realistic (non-MToon) models: soft skin, glossy eyes with catchlights. */
-function enhanceRealisticMaterials(vrm: VRM) {
+function enhanceRealisticMaterials(vrm: VRM): boolean {
+  let changed = false;
   vrm.scene.traverse((o) => {
     if (!(o instanceof THREE.Mesh)) return;
     const mats = Array.isArray(o.material) ? o.material : [o.material];
@@ -86,11 +87,13 @@ function enhanceRealisticMaterials(vrm: VRM) {
         next = m;
       }
       if (!next) return;
+      changed = true;
       if (Array.isArray(o.material)) o.material[i] = next;
       else o.material = next;
       mat.dispose();
     });
   });
+  return changed;
 }
 
 const FINGERS = ["Index", "Middle", "Ring", "Little"] as const;
@@ -225,7 +228,8 @@ export default function VrmAvatar({
         scene.add(loaded.scene);
         vrm = loaded;
         relaxFingers(vrm);
-        enhanceRealisticMaterials(vrm);
+        // Realistic (PBR) models open their eyes too wide at rest; anime models are fine.
+        restLid = enhanceRealisticMaterials(vrm) ? 0.2 : 0;
 
         mixer = new THREE.AnimationMixer(loaded.scene);
         await loadClip(loaded, mixer, "idle");
@@ -249,6 +253,7 @@ export default function VrmAvatar({
     const clock = new THREE.Clock();
     let nextBlink = 2;
     let blinkT = -1;
+    let restLid = 0;
     const tmp = new THREE.Euler();
     const offset: Record<BoneName, THREE.Euler> = {
       spine: new THREE.Euler(),
@@ -339,8 +344,10 @@ export default function VrmAvatar({
         if (blinkT >= 0) {
           blinkT += dt;
           const v = blinkT < 0.08 ? blinkT / 0.08 : Math.max(0, 1 - (blinkT - 0.08) / 0.1);
-          em.setValue("blink", v);
+          em.setValue("blink", Math.max(v, restLid));
           if (blinkT > 0.2) blinkT = -1;
+        } else {
+          em.setValue("blink", restLid);
         }
       }
 
@@ -349,6 +356,8 @@ export default function VrmAvatar({
         vrm.lookAt.yaw = 20;
         vrm.lookAt.pitch = 15;
       } else if (vrm.lookAt) {
+        gaze.position.copy(camera.position);
+        gaze.position.y -= 2.5;
         vrm.lookAt.target = gaze;
       }
 
