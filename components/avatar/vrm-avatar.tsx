@@ -121,7 +121,7 @@ function enhanceRealisticMaterials(vrm: VRM): boolean {
         next = m;
       } else if (/head|body|skin|face/i.test(name)) {
         const m = toPhysical(mat);
-        m.sheen = 0.2;
+        m.sheen = 0.08;
         m.sheenRoughness = 0.9;
         m.sheenColor = new THREE.Color(0xffb8a0);
         m.envMapIntensity = 1;
@@ -190,6 +190,10 @@ export default function VrmAvatar({
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.95;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.domElement.className = "absolute inset-0 h-full w-full";
     el.appendChild(renderer.domElement);
 
@@ -199,14 +203,28 @@ export default function VrmAvatar({
     scene.add(gaze);
     const pmrem = new THREE.PMREMGenerator(renderer);
     scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    scene.environmentIntensity = 0.35;
+    scene.environmentIntensity = 0.45;
     pmrem.dispose();
-    scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-    const key = new THREE.DirectionalLight(0xfff1e6, 1.6);
-    key.position.set(1, 2, 2);
+    // Portrait 3-point setup: soft key with shadows, cool fill, subtle rim; hemisphere
+    // instead of flat ambient so the face keeps its volume.
+    scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x3a3230, 0.35));
+    const key = new THREE.DirectionalLight(0xffe9d6, 1.7);
+    key.position.set(1.2, 2.2, 1.8);
+    key.castShadow = true;
+    key.shadow.mapSize.set(1024, 1024);
+    key.shadow.radius = 4;
+    key.shadow.bias = -0.0005;
+    key.shadow.normalBias = 0.02;
+    key.shadow.camera.near = 0.5;
+    key.shadow.camera.far = 6;
+    key.shadow.camera.left = key.shadow.camera.bottom = -1.2;
+    key.shadow.camera.right = key.shadow.camera.top = 1.2;
     scene.add(key);
-    const rim = new THREE.DirectionalLight(0xffb7c5, 0.6);
-    rim.position.set(-2, 1, -1);
+    const fill = new THREE.DirectionalLight(0xcfd8ff, 0.55);
+    fill.position.set(-2, 1, 2);
+    scene.add(fill);
+    const rim = new THREE.DirectionalLight(0xffffff, 0.5);
+    rim.position.set(-1, 2, -2);
     scene.add(rim);
 
     const resize = () => {
@@ -265,6 +283,10 @@ export default function VrmAvatar({
         VRMUtils.rotateVRM0(loaded);
         loaded.scene.traverse((o) => {
           o.frustumCulled = false;
+          if (o instanceof THREE.Mesh) {
+            o.castShadow = true;
+            o.receiveShadow = true;
+          }
         });
         scene.add(loaded.scene);
         vrm = loaded;
