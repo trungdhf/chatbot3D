@@ -14,10 +14,12 @@ export default function Chat({
   name,
   greeting,
   suggestions,
+  modelUrl,
 }: {
   name: string;
   greeting: string;
   suggestions: string[];
+  modelUrl?: string;
 }) {
   const [messages, setMessages] = useState<Msg[]>([
     { id: "greeting", role: "assistant", content: greeting },
@@ -148,6 +150,7 @@ export default function Chat({
 
       <aside className={`${showAvatar ? "block" : "hidden"} w-full md:block md:w-80`}>
         <AvatarPanel
+          modelUrl={modelUrl}
           name={name}
           thinking={busy}
           line={last ? { id: last.id, text: last.content, reaction: last.reaction } : null}

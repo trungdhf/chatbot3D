@@ -29,3 +29,11 @@ Không có `GEMINI_API_KEY` app vẫn chạy: đố vui / chuyện cười / tr�
 ```bash
 npm run typecheck && npm run lint && npm run build
 ```
+
+## Chuyển GLB (Mixamo rig + ARKit blendshape) sang VRM
+
+```bash
+python3 scripts/glb2vrm.py model.glb public/avatars/real.vrm
+```
+
+Mở `http://localhost:3000/?model=real` để xem (query `?model=<tên>` chọn `public/avatars/<tên>.vrm`).
